@@ -12,31 +12,35 @@ local S = core.get_mod_translator()
   formspecs = {}
 
 --FUNCTIONS
-  function formspecs.extractor(pos)
+    function formspecs.extractor(pos)
     local spos = pos.x .. ',' .. pos.y .. ',' ..pos.z
     local formspec =
       'size[8,9]'..
         'background[0,0;0.1,0.1;bees_extractor_background.png;true]'..
+
         --input
+
         'image[1,1;1,1;bees_frame_full.png]'..
         'image[1,3;1,1;vessels_glass_bottle.png]'..
         'list[nodemeta:'.. spos ..';frames_filled;2,1;1,1;]'..
         'list[nodemeta:'.. spos ..';bottles_empty;2,3;1,1;]'..
+
         --output
-        'list[nodemeta:'.. spos ..';frames_emptied;5,0.5;1,1;]'..
-        'list[nodemeta:'.. spos ..';wax;5,2;1,1;]'..
-        'list[nodemeta:'.. spos ..';bottles_full;5,3.5;1,1;]'..
+
+        'list[nodemeta:'.. spos ..';bottles_full;5,0.5;1,1;0]'.. 
+        'list[nodemeta:'.. spos ..';bottles_full;5,2;1,1;1]'..   
+        'list[nodemeta:'.. spos ..';bottles_full;5,3.5;1,1;2]'.. 
+
         --player inventory
+
         'list[current_player;main;0,5;8,4;]'..
+
         --listring
+
         'listring[current_player;main]'..
         'listring[nodemeta:'..spos..';frames_filled]'..
         'listring[current_player;main]'..
         'listring[nodemeta:'..spos..';bottles_empty]'..
-        'listring[current_player;main]'..
-        'listring[nodemeta:'..spos..';frames_emptied]'..
-        'listring[current_player;main]'..
-        'listring[nodemeta:'..spos..';wax]'..
         'listring[current_player;main]'..
         'listring[nodemeta:'..spos..';bottles_full]'..
         'listring[current_player;main]'
@@ -85,12 +89,11 @@ local S = core.get_mod_translator()
       local meta = core.get_meta(pos)
       local inv  = meta:get_inventory()
       inv:set_size('frames_filled'  ,1)
-      inv:set_size('frames_emptied' ,1)
       inv:set_size('bottles_empty'  ,1)
-      inv:set_size('bottles_full' ,1)
-      inv:set_size('wax',1)
+      inv:set_size('bottles_full' , 3)
       meta:set_string('formspec', formspecs.extractor(pos))
     end,
+
 	can_dig = function(pos)
 		local meta = core.get_meta(pos)
 		local inv = meta:get_inventory()
@@ -109,18 +112,16 @@ local S = core.get_mod_translator()
       then
         return
       end
-      if inv:room_for_item('frames_emptied', 'bees:frame_empty')
-      and inv:room_for_item('wax','bees:wax')
+      if inv:room_for_item('bottles_full', 'bees:frame_empty')
+      and inv:room_for_item('bottles_full', 'bees:wax')
       and inv:room_for_item('bottles_full', 'bees:bottle_honey') then
-        --add to output
-        inv:add_item('frames_emptied', 'bees:frame_empty')
-        inv:add_item('wax', 'bees:wax')
         inv:add_item('bottles_full', 'bees:bottle_honey')
-        --remove from input
+        inv:add_item('bottles_full', 'bees:wax')
+        inv:add_item('bottles_full', 'bees:frame_empty')
         inv:remove_item('bottles_empty','vessels:glass_bottle')
         inv:remove_item('frames_filled','bees:frame_full')
 
-        --wax flying all over the place
+        -- Эффекты частиц воска
         core.add_particle({
           pos = {x=pos.x, y=pos.y, z=pos.z},
           velocity = {x=math.random(-4,4),y=math.random(8),z=math.random(-4,4)},
@@ -134,10 +135,10 @@ local S = core.get_mod_translator()
         timer:start(5)
       else
         local timer = core.get_node_timer(pos)
-        timer:start(1) -- Try again in 1 second
+        timer:start(1)
       end
     end,
-    tube = {
+        tube = {
       insert_object = function(pos, node, stack, direction)
         local meta = core.get_meta(pos)
         local inv = meta:get_inventory()
@@ -151,8 +152,8 @@ local S = core.get_mod_translator()
           if inv:is_empty("bottles_empty") then
             timer:start(5)
           end
-          return inv:add_item("bottles_empty",stack)
-        end
+          return inv:add_item("bottles_empty",stack)      
+        end 
         return stack
       end,
       can_insert = function(pos,node,stack,direction)
@@ -165,15 +166,16 @@ local S = core.get_mod_translator()
         end
         return false
       end,
-      input_inventory = {"frames_emptied", "bottles_full", "wax"},
+      input_inventory = {"bottles_full"}, 
       connect_sides = {left=1, right=1, back=1, front=1, bottom=1, top=1}
     },
+
     on_metadata_inventory_put = function(pos, listname, index, stack, player)
       local timer = core.get_node_timer(pos)
       local meta = core.get_meta(pos)
       local inv = meta:get_inventory()
-      if inv:get_stack(listname, 1):get_count() == stack:get_count() then -- inv was empty -> start the timer
-          timer:start(5) --create a honey bottle and empty frame and wax every 5 seconds
+      if inv:get_stack(listname, 1):get_count() == stack:get_count() then 
+          timer:start(5) 
       end
     end,
     allow_metadata_inventory_put = function(pos, listname, index, stack, player)
@@ -192,14 +194,17 @@ local S = core.get_mod_translator()
     allow_metadata_inventory_move = function(pos, from_list, from_index, to_list, to_index, count, player)
       return 0
     end,
-    allow_metadata_inventory_take = function(pos, listname, index, stack, player)
+        allow_metadata_inventory_take = function(pos, listname, index, stack, player)
+      if not player then
+        return stack:get_count()
+      end
       if core.is_protected(pos, player:get_player_name()) then
         return 0
       end
-
       return stack:get_count()
     end,
-  })
+
+  })      
 
   core.register_node('bees:bees', {
     description = S('flying bees'),
